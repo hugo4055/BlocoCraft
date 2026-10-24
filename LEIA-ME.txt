@@ -1,0 +1,3 @@
+BlocoCraft — jogo 3D de blocos inspirado no Minecraft.
+
+Para executar no Windows, instale Python 3, coloque o ficheiro index.html nesta pasta e execute Abrir_BlocoCraft.bat. O jogo usa Three.js por CDN e precisa de internet.
