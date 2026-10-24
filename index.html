@@ -10,19 +10,25 @@
 (()=>{const $=id=>document.getElementById(id);if(!window.THREE){$('card').innerHTML='<h2>Falha ao carregar o motor 3D</h2><p>Verifica a internet e atualiza a página.</p>';return}
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x8bd0f3);scene.fog=new THREE.Fog(0x8bd0f3,28,95);const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,300);camera.rotation.order='YXZ';const renderer=new THREE.WebGLRenderer({antialias:false});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));document.body.appendChild(renderer.domElement);scene.add(new THREE.HemisphereLight(0xdff5ff,0x596044,2));const sun=new THREE.DirectionalLight(0xfff0cf,2);sun.position.set(-20,35,18);scene.add(sun);
 const types=[['Grama',0x68b84b],['Terra',0x8b5a35],['Pedra',0x8c949d],['Madeira',0x956235],['Areia',0xe3cf8b],['Tijolo',0xb95a4b]];
-function makeMat(color){const c=document.createElement('canvas');c.width=64;c.height=64;const g=c.getContext('2d');g.fillStyle='#'+color.toString(16).padStart(6,'0');g.fillRect(0,0,64,64);for(let i=0;i<260;i++){const x=Math.random()*64,y=Math.random()*64,s=1+Math.random()*5;g.fillStyle=Math.random()>.5?'#ffffff22':'#00000022';g.fillRect(x,y,s,s)}const tex=new THREE.CanvasTexture(c);tex.magFilter=THREE.NearestFilter;tex.minFilter=THREE.NearestMipmapNearestFilter;return new THREE.MeshLambertMaterial({map:tex})}
-const mats=types.map(t=>makeMat(t[1])),geo=new THREE.BoxGeometry(1,1,1),blocks=new Map(),meshes=[];let selected=0,locked=false,paused=true;const p={x:0,y:6,z:0,yaw:0,pitch:0,vy:0,ground:false},keys={};const key=(x,y,z)=>x+','+y+','+z;
-function add(x,y,z,t){x=Math.round(x);y=Math.round(y);z=Math.round(z);const k=key(x,y,z);if(blocks.has(k))return false;const m=new THREE.Mesh(geo,mats[t]);m.position.set(x,y,z);m.userData={x,y,z,t};scene.add(m);blocks.set(k,m);meshes.push(m);$('count').textContent=meshes.length;return true}
-function remove(m){blocks.delete(key(m.userData.x,m.userData.y,m.userData.z));scene.remove(m);meshes.splice(meshes.indexOf(m),1);$('count').textContent=meshes.length}
+const textureLoader=new THREE.TextureLoader();
+const textureBase='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.20.4/assets/minecraft/textures/block/';
+function tex(name){const t=textureLoader.load(textureBase+name+'.png');t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestMipmapNearestFilter;t.colorSpace=THREE.SRGBColorSpace;return t}
+function mat(name){return new THREE.MeshLambertMaterial({map:tex(name)})}
+const grassSide=mat('grass_block_side'),grassTop=mat('grass_block_top'),dirtMat=mat('dirt'),stoneMat=mat('stone'),woodMat=mat('oak_planks'),sandMat=mat('sand'),brickMat=mat('bricks');
+const mats=[ [grassSide,dirtMat,grassTop,grassSide,grassSide,grassSide], dirtMat, stoneMat, woodMat, sandMat, brickMat ];
+const geo=new THREE.BoxGeometry(1,1,1),blocks=new Map(),meshes=[];let selected=0,locked=false,paused=true;const p={x:0,y:6,z:0,yaw:0,pitch:0,vy:0,ground:false},keys={};const key=(x,y,z)=>x+','+y+','+z;
+function add(x,y,z,t,fromNetwork=false){x=Math.round(x);y=Math.round(y);z=Math.round(z);const k=key(x,y,z);if(blocks.has(k))return false;const material=mats[t];const m=new THREE.Mesh(geo,Array.isArray(material)?material:material);m.position.set(x,y,z);m.userData={x,y,z,t};scene.add(m);blocks.set(k,m);meshes.push(m);$('count').textContent=meshes.length;if(!fromNetwork&&socket&&socket.readyState===1)socket.send(JSON.stringify({type:'block',action:'add',x,y,z,t}));return true}
+function remove(m,fromNetwork=false){const d=m.userData,k=key(d.x,d.y,d.z);blocks.delete(k);scene.remove(m);const ix=meshes.indexOf(m);if(ix>=0)meshes.splice(ix,1);$('count').textContent=meshes.length;if(!fromNetwork&&socket&&socket.readyState===1)socket.send(JSON.stringify({type:'block',action:'remove',x:d.x,y:d.y,z:d.z,t:d.t}))}
+function applyRemoteBlock(msg){if(!msg||!Number.isFinite(+msg.x)||!Number.isFinite(+msg.y)||!Number.isFinite(+msg.z))return;const k=key(msg.x,msg.y,msg.z);if(msg.action==='remove'){const m=blocks.get(k);if(m)remove(m,true);remoteEdits.set(k,{action:'remove'});return}const t=Math.max(0,Math.min(types.length-1,Number(msg.t)||0));const old=blocks.get(k);if(old)remove(old,true);add(msg.x,msg.y,msg.z,t,true);remoteEdits.set(k,{action:'add',t})}
 function height(x,z){return Math.floor(2+Math.sin(x*.2)*1.5+Math.cos(z*.17)*1.5)}
-const CHUNK=16,RENDER_DISTANCE=3,loadedChunks=new Map();
+const CHUNK=16,RENDER_DISTANCE=3,loadedChunks=new Map(),remoteEdits=new Map();
 function chunkKey(cx,cz){return cx+','+cz}
 function loadChunk(cx,cz){
  const ck=chunkKey(cx,cz);if(loadedChunks.has(ck))return;
  const keys=[];
  for(let lx=0;lx<CHUNK;lx++)for(let lz=0;lz<CHUNK;lz++){
   const x=cx*CHUNK+lx,z=cz*CHUNK+lz,h=height(x,z);
-  for(let y=-2;y<=h;y++)if(add(x,y,z,y===h?0:y<h-2?2:1))keys.push(key(x,y,z));
+  for(let y=-2;y<=h;y++){const k=key(x,y,z),edit=remoteEdits.get(k);if(edit&&edit.action==='remove')continue;if(add(x,y,z,edit&&edit.action==='add'?edit.t:(y===h?0:y<h-2?2:1)))keys.push(k)}
   if(((Math.imul((x+4096),73856093)^Math.imul((z+4096),19349663))>>>0)%97===0){
    for(let y=h+1;y<h+4;y++)if(add(x,y,z,3))keys.push(key(x,y,z));
    for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let y=h+3;y<=h+4;y++)if(!(dx===0&&dz===0&&y<h+4)&&add(x+dx,y,z+dz,0))keys.push(key(x+dx,y,z+dz));
@@ -55,9 +61,10 @@ function connectMultiplayer(){
  try{socket=new WebSocket(url)}catch(e){return}
  socket.onopen=()=>{const info=document.getElementById('info');if(info)info.innerHTML+=' <br>Multiplayer: ligado'};
  socket.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}
-  if(m.type==='welcome'){myId=m.id;(m.players||[]).forEach(pl=>{if(pl.id!==myId)drawRemote(pl)})}
+  if(m.type==='welcome'){myId=m.id;(m.players||[]).forEach(pl=>{if(pl.id!==myId)drawRemote(pl)});(m.blocks||[]).forEach(applyRemoteBlock)}
   if(m.type==='join')drawRemote(m.player);
   if(m.type==='state'&&m.player.id!==myId)drawRemote(m.player);
+  if(m.type==='block')applyRemoteBlock(m);
   if(m.type==='leave'){const r=remotePlayers.get(m.id);if(r){scene.remove(r.mesh);remotePlayers.delete(m.id)}}
   if(m.type==='chat')console.log('[Chat] '+m.name+': '+m.text);
  };
