@@ -4,17 +4,41 @@
 *{box-sizing:border-box}body{margin:0;overflow:hidden;font-family:system-ui;background:#8bd0f3;color:#fff}canvas{display:block}#hud{position:fixed;inset:0;pointer-events:none;text-shadow:1px 2px 3px #222}#title{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:22px;font-weight:900;background:#142232bb;padding:8px 16px;border-radius:10px}#info{position:absolute;top:12px;left:12px;background:#142232cc;padding:10px;border-radius:8px;line-height:1.7}#help{position:absolute;bottom:12px;left:12px;background:#142232cc;padding:10px;border-radius:8px;font-size:12px}#bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:4px}#bar button{pointer-events:auto;width:58px;height:54px;border:2px solid #ffffff66;border-radius:7px;background:#142232cc;color:white;font-size:11px}#bar button.active{border:3px solid white;background:#506b80}#cross{position:absolute;left:50%;top:50%;font-size:24px;transform:translate(-50%,-50%)}#start{pointer-events:auto;position:fixed;inset:0;display:grid;place-items:center;background:#071321aa}#card{max-width:480px;margin:16px;padding:25px;background:#142232f2;border:1px solid #ffffff44;border-radius:15px;text-align:center}button{cursor:pointer;padding:11px 16px;border:0;border-radius:8px;font-weight:800;background:#8ee36b;color:#172510}small{color:#d0dfeb}
 </style></head><body>
 <div id="hud"><div id="title">BLOCOCRAFT</div><div id="info">Modo: Criativo<br>Blocos no mundo: <span id="count">0</span><br>Posição: <span id="pos">0, 0</span></div><div id="cross">+</div><div id="help">WASD mover · Espaço pular · Shift correr<br>Mouse olhar · Clique esquerdo minerar · Direito colocar<br>1–6 escolher bloco · Esc soltar/pausar</div><div id="bar"></div></div>
-<div id="start"><div id="card"><h1>⛏️ BLOCOCRAFT</h1><p>Explora um mundo 3D de blocos, minera materiais e constrói o que quiseres.</p><p><small>Texturas procedurais · Multiplayer online (precisa do servidor)</small></p><input id="wsurl" placeholder="wss://teu-servidor.onrender.com" style="width:100%;padding:10px;margin:8px 0;border-radius:7px;border:0" /><p><small>Cola aqui o endereço WebSocket do servidor Render.</small></p><button id="play">ENTRAR NO MUNDO</button></div></div>
+<div id="start"><div id="card"><h1>⛏️ BLOCOCRAFT</h1><p>Explora um mundo 3D de blocos, minera materiais e constrói o que quiseres.</p><p><small>Texturas procedurais · Multiplayer online (precisa do servidor)</small></p><input id="wsurl" value="wss://blococraft-multiplayer.onrender.com" placeholder="wss://servidor.onrender.com" style="width:100%;padding:10px;margin:8px 0;border-radius:7px;border:0" /><p><small>Cola aqui o endereço WebSocket do servidor Render.</small></p><button id="play">ENTRAR NO MUNDO</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script><script>
 (()=>{const $=id=>document.getElementById(id);if(!window.THREE){$('card').innerHTML='<h2>Falha ao carregar o motor 3D</h2><p>Verifica a internet e atualiza a página.</p>';return}
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x8bd0f3);scene.fog=new THREE.Fog(0x8bd0f3,28,95);const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,300);camera.rotation.order='YXZ';const renderer=new THREE.WebGLRenderer({antialias:false});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));document.body.appendChild(renderer.domElement);scene.add(new THREE.HemisphereLight(0xdff5ff,0x596044,2));const sun=new THREE.DirectionalLight(0xfff0cf,2);sun.position.set(-20,35,18);scene.add(sun);
-const types=[['Grama',0x68b84b],['Terra',0x8b5a35],['Pedra',0x8c949d],['Madeira',0x956235],['Areia',0xe3cf8b],['Tijolo',0xb95a4b]],makeMat(t=>t[1]);
+const types=[['Grama',0x68b84b],['Terra',0x8b5a35],['Pedra',0x8c949d],['Madeira',0x956235],['Areia',0xe3cf8b],['Tijolo',0xb95a4b]];
 function makeMat(color){const c=document.createElement('canvas');c.width=64;c.height=64;const g=c.getContext('2d');g.fillStyle='#'+color.toString(16).padStart(6,'0');g.fillRect(0,0,64,64);for(let i=0;i<260;i++){const x=Math.random()*64,y=Math.random()*64,s=1+Math.random()*5;g.fillStyle=Math.random()>.5?'#ffffff22':'#00000022';g.fillRect(x,y,s,s)}const tex=new THREE.CanvasTexture(c);tex.magFilter=THREE.NearestFilter;tex.minFilter=THREE.NearestMipmapNearestFilter;return new THREE.MeshLambertMaterial({map:tex})}
 const mats=types.map(t=>makeMat(t[1])),geo=new THREE.BoxGeometry(1,1,1),blocks=new Map(),meshes=[];let selected=0,locked=false,paused=true;const p={x:0,y:6,z:0,yaw:0,pitch:0,vy:0,ground:false},keys={};const key=(x,y,z)=>x+','+y+','+z;
 function add(x,y,z,t){x=Math.round(x);y=Math.round(y);z=Math.round(z);const k=key(x,y,z);if(blocks.has(k))return false;const m=new THREE.Mesh(geo,mats[t]);m.position.set(x,y,z);m.userData={x,y,z,t};scene.add(m);blocks.set(k,m);meshes.push(m);$('count').textContent=meshes.length;return true}
 function remove(m){blocks.delete(key(m.userData.x,m.userData.y,m.userData.z));scene.remove(m);meshes.splice(meshes.indexOf(m),1);$('count').textContent=meshes.length}
 function height(x,z){return Math.floor(2+Math.sin(x*.2)*1.5+Math.cos(z*.17)*1.5)}
-for(let x=-28;x<=28;x++)for(let z=-28;z<=28;z++){let h=height(x,z);for(let y=-2;y<=h;y++)add(x,y,z,y===h?0:y<h-2?2:1);if(Math.random()<.02){for(let y=h+1;y<h+4;y++)add(x,y,z,3);for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let y=h+3;y<=h+4;y++)if(Math.random()>.15)add(x+dx,y,z+dz,0)}}
+const CHUNK=16,RENDER_DISTANCE=3,loadedChunks=new Map();
+function chunkKey(cx,cz){return cx+','+cz}
+function loadChunk(cx,cz){
+ const ck=chunkKey(cx,cz);if(loadedChunks.has(ck))return;
+ const keys=[];
+ for(let lx=0;lx<CHUNK;lx++)for(let lz=0;lz<CHUNK;lz++){
+  const x=cx*CHUNK+lx,z=cz*CHUNK+lz,h=height(x,z);
+  for(let y=-2;y<=h;y++)if(add(x,y,z,y===h?0:y<h-2?2:1))keys.push(key(x,y,z));
+  if(((Math.imul((x+4096),73856093)^Math.imul((z+4096),19349663))>>>0)%97===0){
+   for(let y=h+1;y<h+4;y++)if(add(x,y,z,3))keys.push(key(x,y,z));
+   for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let y=h+3;y<=h+4;y++)if(!(dx===0&&dz===0&&y<h+4)&&add(x+dx,y,z+dz,0))keys.push(key(x+dx,y,z+dz));
+  }
+ }
+ loadedChunks.set(ck,keys);
+}
+function updateChunks(){
+ const cx=Math.floor(p.x/CHUNK),cz=Math.floor(p.z/CHUNK);
+ for(let x=cx-RENDER_DISTANCE;x<=cx+RENDER_DISTANCE;x++)for(let z=cz-RENDER_DISTANCE;z<=cz+RENDER_DISTANCE;z++)loadChunk(x,z);
+ for(const [ck,ks] of loadedChunks){const [x,z]=ck.split(',').map(Number);if(Math.abs(x-cx)>RENDER_DISTANCE+1||Math.abs(z-cz)>RENDER_DISTANCE+1){
+  for(const k of ks){const m=blocks.get(k);if(m){scene.remove(m);blocks.delete(k);const i=meshes.indexOf(m);if(i>=0)meshes.splice(i,1)}}
+  loadedChunks.delete(ck);
+ }}
+ $('count').textContent=meshes.length;
+}
+updateChunks();
 const inventory=[24,40,16,4,8,0];function bar(){$('bar').innerHTML=types.map((t,i)=>'<button class="'+(i===selected?'active':'')+'" data-i="'+i+'">'+(i+1)+'<br>■ '+t[0]+'<br>'+inventory[i]+'</button>').join('');$('bar').querySelectorAll('button').forEach(b=>b.onclick=()=>{selected=+b.dataset.i;bar()})}bar();
 function solid(x,y,z){return blocks.has(key(Math.round(x),Math.floor(y),Math.round(z)))}function ray(){const r=new THREE.Raycaster();r.setFromCamera(new THREE.Vector2(0,0),camera);return r.intersectObjects(meshes,false).find(h=>h.distance<6)}
 document.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousedown',e=>{if(!locked||paused)return;const h=ray();if(!h)return;const d=h.object.userData;if(e.button===0){remove(h.object);inventory[d.t]++;bar()}if(e.button===2){if(inventory[selected]<=0)return;const n=h.face.normal.clone().transformDirection(h.object.matrixWorld);if(add(d.x+Math.round(n.x),d.y+Math.round(n.y),d.z+Math.round(n.z),selected)){inventory[selected]--;bar()}}});
@@ -40,6 +64,6 @@ function connectMultiplayer(){
 }
 function drawRemote(pl){if(!pl||!pl.id)return;let r=remotePlayers.get(pl.id);if(!r){const mesh=new THREE.Mesh(new THREE.BoxGeometry(.7,1.7,.45),new THREE.MeshLambertMaterial({color:pl.color||0x4d96ff}));scene.add(mesh);r={mesh};remotePlayers.set(pl.id,r)}r.mesh.position.set(Number(pl.x)||0,(Number(pl.y)||0)-.5,Number(pl.z)||0);r.mesh.rotation.y=Number(pl.yaw)||0}
 
-let last=performance.now();function loop(now){requestAnimationFrame(loop);const dt=Math.min((now-last)/1000,.04);last=now;if(locked&&!paused){if(socket&&socket.readyState===1&&now-lastNet>80){socket.send(JSON.stringify({type:'state',x:p.x,y:p.y,z:p.z,yaw:p.yaw}));lastNet=now}const speed=(keys.ShiftLeft?8:5)*dt,fw=(keys.KeyW?1:0)-(keys.KeyS?1:0),sd=(keys.KeyD?1:0)-(keys.KeyA?1:0),dx=(-Math.sin(p.yaw)*fw+Math.cos(p.yaw)*sd)*speed,dz=(-Math.cos(p.yaw)*fw-Math.sin(p.yaw)*sd)*speed;if(!solid(p.x+dx,p.y-1,p.z))p.x+=dx;if(!solid(p.x,p.y-1,p.z+dz))p.z+=dz;if(keys.Space&&p.ground){p.vy=8;p.ground=false}p.vy-=22*dt;let ny=p.y+p.vy*dt;if(p.vy<=0&&solid(p.x,ny-1.7,p.z)){p.y=Math.floor(ny-1.7)+2.7;p.vy=0;p.ground=true}else{p.y=ny;p.ground=false}if(p.y<-10){p.x=0;p.z=0;p.y=8;p.vy=0}camera.position.set(p.x,p.y,p.z);camera.rotation.set(p.pitch,p.yaw,0,'YXZ');$('pos').textContent=Math.round(p.x)+', '+Math.round(p.z)}renderer.render(scene,camera)}requestAnimationFrame(loop);addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+let last=performance.now();function loop(now){requestAnimationFrame(loop);const dt=Math.min((now-last)/1000,.04);last=now;if(locked&&!paused){updateChunks();if(socket&&socket.readyState===1&&now-lastNet>80){socket.send(JSON.stringify({type:'state',x:p.x,y:p.y,z:p.z,yaw:p.yaw}));lastNet=now}const speed=(keys.ShiftLeft?8:5)*dt,fw=(keys.KeyW?1:0)-(keys.KeyS?1:0),sd=(keys.KeyD?1:0)-(keys.KeyA?1:0),dx=(-Math.sin(p.yaw)*fw+Math.cos(p.yaw)*sd)*speed,dz=(-Math.cos(p.yaw)*fw-Math.sin(p.yaw)*sd)*speed;if(!solid(p.x+dx,p.y-1,p.z))p.x+=dx;if(!solid(p.x,p.y-1,p.z+dz))p.z+=dz;if(keys.Space&&p.ground){p.vy=8;p.ground=false}p.vy-=22*dt;let ny=p.y+p.vy*dt;if(p.vy<=0&&solid(p.x,ny-1.7,p.z)){p.y=Math.floor(ny-1.7)+2.7;p.vy=0;p.ground=true}else{p.y=ny;p.ground=false}if(p.y<-10){p.x=0;p.z=0;p.y=8;p.vy=0}camera.position.set(p.x,p.y,p.z);camera.rotation.set(p.pitch,p.yaw,0,'YXZ');$('pos').textContent=Math.round(p.x)+', '+Math.round(p.z)}renderer.render(scene,camera)}requestAnimationFrame(loop);addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 })();
 </script></body></html>
