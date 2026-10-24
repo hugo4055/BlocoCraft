@@ -27,7 +27,7 @@ wss.on("connection", (ws) => {
     let msg; try { msg = JSON.parse(raw.toString()); } catch { return; }
     const player = clients.get(ws); if (!player || !msg || typeof msg.type !== "string") return;
     if (msg.type === "block" && (msg.action === "add" || msg.action === "remove")) {
-      const x = Number(msg.x), y = Number(msg.y), z = Number(msg.z), t = Math.max(0, Math.min(5, Number(msg.t) || 0));
+      const x = Number(msg.x), y = Number(msg.y), z = Number(msg.z), t = Math.max(0, Math.min(7, Number(msg.t) || 0));
       if (![x,y,z].every(Number.isFinite) || Math.abs(x)>100000 || Math.abs(y)>10000 || Math.abs(z)>100000) return;
       const block = { type: "block", action: msg.action, x: Math.round(x), y: Math.round(y), z: Math.round(z), t };
       const key = blockKey(block.x,block.y,block.z);
