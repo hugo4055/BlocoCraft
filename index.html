@@ -5,7 +5,7 @@
 *{box-sizing:border-box}body{margin:0;overflow:hidden;font-family:system-ui;background:#8bd0f3;color:#fff}canvas{display:block}#hud{position:fixed;inset:0;pointer-events:none;text-shadow:1px 2px 3px #222}#title{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:22px;font-weight:900;background:#142232bb;padding:8px 16px;border-radius:10px}#info{position:absolute;top:12px;left:12px;background:#142232cc;padding:10px;border-radius:8px;line-height:1.7}#help{position:absolute;bottom:12px;left:12px;background:#142232cc;padding:10px;border-radius:8px;font-size:12px}#bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:4px}#bar button{pointer-events:auto;width:58px;height:54px;border:2px solid #ffffff66;border-radius:7px;background:#142232cc;color:white;font-size:11px}#bar button.active{border:3px solid white;background:#506b80}#cross{position:absolute;left:50%;top:50%;font-size:24px;transform:translate(-50%,-50%)}#start{pointer-events:auto;position:fixed;inset:0;display:grid;place-items:center;background:#071321aa}#card{max-width:480px;margin:16px;padding:25px;background:#142232f2;border:1px solid #ffffff44;border-radius:15px;text-align:center}button{cursor:pointer;padding:11px 16px;border:0;border-radius:8px;font-weight:800;background:#8ee36b;color:#172510}small{color:#d0dfeb}
 </style></head><body>
 <div id="hud"><div id="title">BLOCOCRAFT</div><div id="info">Modo: Criativo<br>Blocos no mundo: <span id="count">0</span><br>Posição: <span id="pos">0, 0</span></div><div id="cross">+</div><div id="help">WASD mover · Espaço pular · Shift correr<br>Mouse olhar · Clique esquerdo minerar · Direito colocar<br>1–6 escolher bloco · Esc soltar/pausar</div><div id="bar"></div></div>
-<div id="start"><div id="card"><h1>⛏️ BLOCOCRAFT</h1><p>Explora um mundo 3D de blocos, minera materiais e constrói o que quiseres.</p><p><small>Texturas procedurais · Multiplayer online (precisa do servidor)</small></p><input id="wsurl" value="wss://blococraft-multiplayer.onrender.com" placeholder="wss://servidor.onrender.com" style="width:100%;padding:10px;margin:8px 0;border-radius:7px;border:0" /><p><small>Cola aqui o endereço WebSocket do servidor Render.</small></p><button id="play">ENTRAR NO MUNDO</button></div></div>
+<div id="start"><div id="card"><h1>⛏️ BLOCOCRAFT</h1><p>Explora um mundo 3D de blocos, minera materiais e constrói o que quiseres.</p><p><small>Texturas clássicas do Minecraft · Multiplayer online</small></p><input id="wsurl" value="wss://blococraft-multiplayer.onrender.com" placeholder="wss://servidor.onrender.com" style="width:100%;padding:10px;margin:8px 0;border-radius:7px;border:0" /><p><small>Cola aqui o endereço WebSocket do servidor Render.</small></p><button id="play">ENTRAR NO MUNDO</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script><script>
 (()=>{const $=id=>document.getElementById(id);if(!window.THREE){$('card').innerHTML='<h2>Falha ao carregar o motor 3D</h2><p>Verifica a internet e atualiza a página.</p>';return}
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x8bd0f3);scene.fog=new THREE.Fog(0x8bd0f3,28,95);const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,300);camera.rotation.order='YXZ';const renderer=new THREE.WebGLRenderer({antialias:false});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));document.body.appendChild(renderer.domElement);scene.add(new THREE.HemisphereLight(0xdff5ff,0x596044,2));const sun=new THREE.DirectionalLight(0xfff0cf,2);sun.position.set(-20,35,18);scene.add(sun);
@@ -16,12 +16,12 @@ function tex(name){const t=textureLoader.load(textureBase+name+'.png');t.magFilt
 function mat(name){return new THREE.MeshLambertMaterial({map:tex(name)})}
 const grassSide=mat('grass_block_side'),grassTop=mat('grass_block_top'),dirtMat=mat('dirt'),stoneMat=mat('stone'),woodMat=mat('oak_planks'),sandMat=mat('sand'),brickMat=mat('bricks');
 const mats=[ [grassSide,grassSide,grassTop,dirtMat,grassSide,grassSide], dirtMat, stoneMat, woodMat, sandMat, brickMat ];
-const geo=new THREE.BoxGeometry(1,1,1),blocks=new Map(),meshes=[];let selected=0,locked=false,paused=true;const p={x:0,y:6,z:0,yaw:0,pitch:0,vy:0,ground:false},keys={};const key=(x,y,z)=>x+','+y+','+z;
+const geo=new THREE.BoxGeometry(1,1,1),blocks=new Map(),meshes=[];const remotePlayers=new Map();let socket=null,myId=null,lastNet=0;let selected=0,locked=false,paused=true;const p={x:0,y:6,z:0,yaw:0,pitch:0,vy:0,ground:false},keys={};const key=(x,y,z)=>x+','+y+','+z;
 function add(x,y,z,t,fromNetwork=false){x=Math.round(x);y=Math.round(y);z=Math.round(z);const k=key(x,y,z);if(blocks.has(k))return false;const material=mats[t];const m=new THREE.Mesh(geo,Array.isArray(material)?material:material);m.position.set(x,y,z);m.userData={x,y,z,t};scene.add(m);blocks.set(k,m);meshes.push(m);$('count').textContent=meshes.length;if(!fromNetwork&&socket&&socket.readyState===1)socket.send(JSON.stringify({type:'block',action:'add',x,y,z,t}));return true}
 function remove(m,fromNetwork=false){const d=m.userData,k=key(d.x,d.y,d.z);blocks.delete(k);scene.remove(m);const ix=meshes.indexOf(m);if(ix>=0)meshes.splice(ix,1);$('count').textContent=meshes.length;if(!fromNetwork&&socket&&socket.readyState===1)socket.send(JSON.stringify({type:'block',action:'remove',x:d.x,y:d.y,z:d.z,t:d.t}))}
 function applyRemoteBlock(msg){if(!msg||!Number.isFinite(+msg.x)||!Number.isFinite(+msg.y)||!Number.isFinite(+msg.z))return;const k=key(msg.x,msg.y,msg.z);if(msg.action==='remove'){const m=blocks.get(k);if(m)remove(m,true);remoteEdits.set(k,{action:'remove'});return}const t=Math.max(0,Math.min(types.length-1,Number(msg.t)||0));const old=blocks.get(k);if(old)remove(old,true);add(msg.x,msg.y,msg.z,t,true);remoteEdits.set(k,{action:'add',t})}
 function height(x,z){return Math.floor(2+Math.sin(x*.2)*1.5+Math.cos(z*.17)*1.5)}
-const CHUNK=16,RENDER_DISTANCE=3,loadedChunks=new Map(),remoteEdits=new Map();
+const CHUNK=16,RENDER_DISTANCE=2,loadedChunks=new Map(),remoteEdits=new Map(),chunkQueue=[];
 function chunkKey(cx,cz){return cx+','+cz}
 function loadChunk(cx,cz){
  const ck=chunkKey(cx,cz);if(loadedChunks.has(ck))return;
@@ -39,21 +39,25 @@ function loadChunk(cx,cz){
 }
 function updateChunks(){
  const cx=Math.floor(p.x/CHUNK),cz=Math.floor(p.z/CHUNK);
- for(let x=cx-RENDER_DISTANCE;x<=cx+RENDER_DISTANCE;x++)for(let z=cz-RENDER_DISTANCE;z<=cz+RENDER_DISTANCE;z++)loadChunk(x,z);
  for(const [ck,ks] of loadedChunks){const [x,z]=ck.split(',').map(Number);if(Math.abs(x-cx)>RENDER_DISTANCE+1||Math.abs(z-cz)>RENDER_DISTANCE+1){
   for(const k of ks){const m=blocks.get(k);if(m){scene.remove(m);blocks.delete(k);const i=meshes.indexOf(m);if(i>=0)meshes.splice(i,1)}}
   loadedChunks.delete(ck);
  }}
+ // Carrega apenas um chunk por frame para evitar congelar a entrada no mundo.
+ let best=null,bestD=Infinity;
+ for(let x=cx-RENDER_DISTANCE;x<=cx+RENDER_DISTANCE;x++)for(let z=cz-RENDER_DISTANCE;z<=cz+RENDER_DISTANCE;z++){
+  const ck=chunkKey(x,z);if(loadedChunks.has(ck))continue;
+  const d=(x-cx)*(x-cx)+(z-cz)*(z-cz);if(d<bestD){bestD=d;best=[x,z]}
+ }
+ if(best)loadChunk(best[0],best[1]);
  $('count').textContent=meshes.length;
 }
-updateChunks();
 const inventory=[24,40,16,4,8,0];function bar(){$('bar').innerHTML=types.map((t,i)=>'<button class="'+(i===selected?'active':'')+'" data-i="'+i+'">'+(i+1)+'<br>■ '+t[0]+'<br>'+inventory[i]+'</button>').join('');$('bar').querySelectorAll('button').forEach(b=>b.onclick=()=>{selected=+b.dataset.i;bar()})}bar();
 function solid(x,y,z){return blocks.has(key(Math.round(x),Math.floor(y),Math.round(z)))}function ray(){const r=new THREE.Raycaster();r.setFromCamera(new THREE.Vector2(0,0),camera);return r.intersectObjects(meshes,false).find(h=>h.distance<6)}
 document.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousedown',e=>{if(!locked||paused)return;const h=ray();if(!h)return;const d=h.object.userData;if(e.button===0){remove(h.object);inventory[d.t]++;bar()}if(e.button===2){if(inventory[selected]<=0)return;const n=h.face.normal.clone().transformDirection(h.object.matrixWorld);if(add(d.x+Math.round(n.x),d.y+Math.round(n.y),d.z+Math.round(n.z),selected)){inventory[selected]--;bar()}}});
 $('play').onclick=()=>{connectMultiplayer();paused=false;$('start').style.display='none';renderer.domElement.requestPointerLock()};document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===renderer.domElement;if(!locked&&!paused){paused=true;$('start').style.display='grid';$('card').innerHTML='<h2>Jogo pausado</h2><p>Clica para continuar.</p><button id="resume">CONTINUAR</button>';$('resume').onclick=()=>{paused=false;$('start').style.display='none';renderer.domElement.requestPointerLock()}}});
 document.addEventListener('mousemove',e=>{if(locked){p.yaw-=e.movementX*.0022;p.pitch=Math.max(-1.5,Math.min(1.5,p.pitch-e.movementY*.0022))}});document.addEventListener('keydown',e=>{keys[e.code]=true;if(e.code.startsWith('Digit')){let n=+e.code.slice(5);if(n>=1&&n<=6){selected=n-1;bar()}}if(e.code==='Space')e.preventDefault()});document.addEventListener('keyup',e=>keys[e.code]=false);
 
-const remotePlayers=new Map();let socket=null,myId=null,lastNet=0;
 function connectMultiplayer(){
  const field=document.getElementById('wsurl');let url=(field&&field.value||'').trim();
  if(!url){return}
