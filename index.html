@@ -17,9 +17,9 @@ function mat(name){return new THREE.MeshLambertMaterial({map:tex(name)})}
 const grassSide=mat('grass_block_side'),grassTop=mat('grass_block_top'),dirtMat=mat('dirt'),stoneMat=mat('stone'),woodMat=mat('oak_planks'),sandMat=mat('sand'),brickMat=mat('bricks');
 /* A textura superior do bloco de grama do Minecraft é uma máscara clara; precisa de tint verde. */
 grassTop.color.setHex(0x70b947);
-grassSide.color.setHex(0x70b947);
+/* A textura lateral já contém a faixa verde; não tingir a textura toda. */
 const logSide=mat('oak_log'),logTop=mat('oak_log_top'),leavesMat=mat('oak_leaves');
-leavesMat.transparent=false;leavesMat.alphaTest=0.35;
+leavesMat.color.setHex(0x4b8d32);leavesMat.transparent=true;leavesMat.alphaTest=0.35;
 const mats=[ [grassSide,grassSide,grassTop,dirtMat,grassSide,grassSide], dirtMat, stoneMat, woodMat, sandMat, brickMat,
  [logSide,logSide,logTop,logTop,logSide,logSide], leavesMat ];
 const geo=new THREE.BoxGeometry(1,1,1),blocks=new Map(),meshes=[];const remotePlayers=new Map();let socket=null,myId=null,lastNet=0;let selected=0,locked=false,paused=true;const p={x:0,y:6,z:0,yaw:0,pitch:0,vy:0,ground:false},keys={};const key=(x,y,z)=>x+','+y+','+z;
