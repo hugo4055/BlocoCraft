@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BlocoCraft</title>
-<meta name="build-version" content="2026-10-24-minecraft-textures-block-sync">
+<meta name="build-version" content="2026-10-24-textures-tree-grass-performance">
 <style>
 *{box-sizing:border-box}body{margin:0;overflow:hidden;font-family:system-ui;background:#8bd0f3;color:#fff}canvas{display:block}#hud{position:fixed;inset:0;pointer-events:none;text-shadow:1px 2px 3px #222}#title{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:22px;font-weight:900;background:#142232bb;padding:8px 16px;border-radius:10px}#info{position:absolute;top:12px;left:12px;background:#142232cc;padding:10px;border-radius:8px;line-height:1.7}#help{position:absolute;bottom:12px;left:12px;background:#142232cc;padding:10px;border-radius:8px;font-size:12px}#bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:4px}#bar button{pointer-events:auto;width:58px;height:54px;border:2px solid #ffffff66;border-radius:7px;background:#142232cc;color:white;font-size:11px}#bar button.active{border:3px solid white;background:#506b80}#cross{position:absolute;left:50%;top:50%;font-size:24px;transform:translate(-50%,-50%)}#start{pointer-events:auto;position:fixed;inset:0;display:grid;place-items:center;background:#071321aa}#card{max-width:480px;margin:16px;padding:25px;background:#142232f2;border:1px solid #ffffff44;border-radius:15px;text-align:center}button{cursor:pointer;padding:11px 16px;border:0;border-radius:8px;font-weight:800;background:#8ee36b;color:#172510}small{color:#d0dfeb}
 </style></head><body>
@@ -8,18 +8,24 @@
 <div id="start"><div id="card"><h1>⛏️ BLOCOCRAFT</h1><p>Explora um mundo 3D de blocos, minera materiais e constrói o que quiseres.</p><p><small>Texturas clássicas do Minecraft · Multiplayer online</small></p><input id="wsurl" value="wss://blococraft-multiplayer.onrender.com" placeholder="wss://servidor.onrender.com" style="width:100%;padding:10px;margin:8px 0;border-radius:7px;border:0" /><p><small>Cola aqui o endereço WebSocket do servidor Render.</small></p><button id="play">ENTRAR NO MUNDO</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script><script>
 (()=>{const $=id=>document.getElementById(id);if(!window.THREE){$('card').innerHTML='<h2>Falha ao carregar o motor 3D</h2><p>Verifica a internet e atualiza a página.</p>';return}
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x8bd0f3);scene.fog=new THREE.Fog(0x8bd0f3,28,95);const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,300);camera.rotation.order='YXZ';const renderer=new THREE.WebGLRenderer({antialias:false});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));document.body.appendChild(renderer.domElement);scene.add(new THREE.HemisphereLight(0xdff5ff,0x596044,2));const sun=new THREE.DirectionalLight(0xfff0cf,2);sun.position.set(-20,35,18);scene.add(sun);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x8bd0f3);scene.fog=new THREE.Fog(0x8bd0f3,28,95);const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,300);camera.rotation.order='YXZ';const renderer=new THREE.WebGLRenderer({antialias:false});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));document.body.appendChild(renderer.domElement);scene.add(new THREE.HemisphereLight(0xdff5ff,0x596044,2));const sun=new THREE.DirectionalLight(0xfff0cf,2);sun.position.set(-20,35,18);scene.add(sun);
 const types=[['Grama',0x68b84b],['Terra',0x8b5a35],['Pedra',0x8c949d],['Madeira',0x956235],['Areia',0xe3cf8b],['Tijolo',0xb95a4b]];
 const textureLoader=new THREE.TextureLoader();
 const textureBase='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.20.4/assets/minecraft/textures/block/';
 function tex(name){const t=textureLoader.load(textureBase+name+'.png');t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestMipmapNearestFilter;t.colorSpace=THREE.SRGBColorSpace;return t}
 function mat(name){return new THREE.MeshLambertMaterial({map:tex(name)})}
 const grassSide=mat('grass_block_side'),grassTop=mat('grass_block_top'),dirtMat=mat('dirt'),stoneMat=mat('stone'),woodMat=mat('oak_planks'),sandMat=mat('sand'),brickMat=mat('bricks');
-const mats=[ [grassSide,grassSide,grassTop,dirtMat,grassSide,grassSide], dirtMat, stoneMat, woodMat, sandMat, brickMat ];
+/* A textura superior do bloco de grama do Minecraft é uma máscara clara; precisa de tint verde. */
+grassTop.color.setHex(0x70b947);
+grassSide.color.setHex(0x70b947);
+const logSide=mat('oak_log'),logTop=mat('oak_log_top'),leavesMat=mat('oak_leaves');
+leavesMat.transparent=false;leavesMat.alphaTest=0.35;
+const mats=[ [grassSide,grassSide,grassTop,dirtMat,grassSide,grassSide], dirtMat, stoneMat, woodMat, sandMat, brickMat,
+ [logSide,logSide,logTop,logTop,logSide,logSide], leavesMat ];
 const geo=new THREE.BoxGeometry(1,1,1),blocks=new Map(),meshes=[];const remotePlayers=new Map();let socket=null,myId=null,lastNet=0;let selected=0,locked=false,paused=true;const p={x:0,y:6,z:0,yaw:0,pitch:0,vy:0,ground:false},keys={};const key=(x,y,z)=>x+','+y+','+z;
-function add(x,y,z,t,fromNetwork=false){x=Math.round(x);y=Math.round(y);z=Math.round(z);const k=key(x,y,z);if(blocks.has(k))return false;const material=mats[t];const m=new THREE.Mesh(geo,Array.isArray(material)?material:material);m.position.set(x,y,z);m.userData={x,y,z,t};scene.add(m);blocks.set(k,m);meshes.push(m);$('count').textContent=meshes.length;if(!fromNetwork&&socket&&socket.readyState===1)socket.send(JSON.stringify({type:'block',action:'add',x,y,z,t}));return true}
+function add(x,y,z,t,fromNetwork=false){x=Math.round(x);y=Math.round(y);z=Math.round(z);const k=key(x,y,z);if(blocks.has(k))return false;const material=mats[t]||mats[0];const m=new THREE.Mesh(geo,material);m.position.set(x,y,z);m.userData={x,y,z,t};scene.add(m);blocks.set(k,m);meshes.push(m);$('count').textContent=meshes.length;if(!fromNetwork&&socket&&socket.readyState===1)socket.send(JSON.stringify({type:'block',action:'add',x,y,z,t}));return true}
 function remove(m,fromNetwork=false){const d=m.userData,k=key(d.x,d.y,d.z);blocks.delete(k);scene.remove(m);const ix=meshes.indexOf(m);if(ix>=0)meshes.splice(ix,1);$('count').textContent=meshes.length;if(!fromNetwork&&socket&&socket.readyState===1)socket.send(JSON.stringify({type:'block',action:'remove',x:d.x,y:d.y,z:d.z,t:d.t}))}
-function applyRemoteBlock(msg){if(!msg||!Number.isFinite(+msg.x)||!Number.isFinite(+msg.y)||!Number.isFinite(+msg.z))return;const k=key(msg.x,msg.y,msg.z);if(msg.action==='remove'){const m=blocks.get(k);if(m)remove(m,true);remoteEdits.set(k,{action:'remove'});return}const t=Math.max(0,Math.min(types.length-1,Number(msg.t)||0));const old=blocks.get(k);if(old)remove(old,true);add(msg.x,msg.y,msg.z,t,true);remoteEdits.set(k,{action:'add',t})}
+function applyRemoteBlock(msg){if(!msg||!Number.isFinite(+msg.x)||!Number.isFinite(+msg.y)||!Number.isFinite(+msg.z))return;const k=key(msg.x,msg.y,msg.z);if(msg.action==='remove'){const m=blocks.get(k);if(m)remove(m,true);remoteEdits.set(k,{action:'remove'});return}const t=Math.max(0,Math.min(mats.length-1,Number(msg.t)||0));const old=blocks.get(k);if(old)remove(old,true);add(msg.x,msg.y,msg.z,t,true);remoteEdits.set(k,{action:'add',t})}
 function height(x,z){return Math.floor(2+Math.sin(x*.2)*1.5+Math.cos(z*.17)*1.5)}
 const CHUNK=16,RENDER_DISTANCE=2,loadedChunks=new Map(),remoteEdits=new Map(),chunkQueue=[];
 function chunkKey(cx,cz){return cx+','+cz}
@@ -30,8 +36,8 @@ function loadChunk(cx,cz){
   const x=cx*CHUNK+lx,z=cz*CHUNK+lz,h=height(x,z);
   for(let y=-2;y<=h;y++){const k=key(x,y,z),edit=remoteEdits.get(k);if(edit&&edit.action==='remove')continue;if(add(x,y,z,edit&&edit.action==='add'?edit.t:(y===h?0:y<h-2?2:1)))keys.push(k)}
   if(((Math.imul((x+4096),73856093)^Math.imul((z+4096),19349663))>>>0)%97===0){
-   for(let y=h+1;y<h+4;y++)if(add(x,y,z,3))keys.push(key(x,y,z));
-   for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let y=h+3;y<=h+4;y++)if(!(dx===0&&dz===0&&y<h+4)&&add(x+dx,y,z+dz,0))keys.push(key(x+dx,y,z+dz));
+   for(let y=h+1;y<h+4;y++)if(add(x,y,z,6))keys.push(key(x,y,z));
+   for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let y=h+3;y<=h+4;y++)if(!(dx===0&&dz===0&&y<h+4)&&add(x+dx,y,z+dz,7))keys.push(key(x+dx,y,z+dz));
   }
  }
  for(const [k,edit] of remoteEdits){if(edit.action!=='add')continue;const [bx,by,bz]=k.split(',').map(Number);if(Math.floor(bx/CHUNK)===cx&&Math.floor(bz/CHUNK)===cz&&!blocks.has(k)){if(add(bx,by,bz,edit.t,true))keys.push(k)}}
@@ -52,8 +58,8 @@ function updateChunks(){
  if(best)loadChunk(best[0],best[1]);
  $('count').textContent=meshes.length;
 }
-const inventory=[24,40,16,4,8,0];function bar(){$('bar').innerHTML=types.map((t,i)=>'<button class="'+(i===selected?'active':'')+'" data-i="'+i+'">'+(i+1)+'<br>■ '+t[0]+'<br>'+inventory[i]+'</button>').join('');$('bar').querySelectorAll('button').forEach(b=>b.onclick=()=>{selected=+b.dataset.i;bar()})}bar();
-function solid(x,y,z){return blocks.has(key(Math.round(x),Math.floor(y),Math.round(z)))}function ray(){const r=new THREE.Raycaster();r.setFromCamera(new THREE.Vector2(0,0),camera);return r.intersectObjects(meshes,false).find(h=>h.distance<6)}
+const inventory=[24,40,16,4,8,0];const raycaster=new THREE.Raycaster();function bar(){$('bar').innerHTML=types.map((t,i)=>'<button class="'+(i===selected?'active':'')+'" data-i="'+i+'">'+(i+1)+'<br>■ '+t[0]+'<br>'+inventory[i]+'</button>').join('');$('bar').querySelectorAll('button').forEach(b=>b.onclick=()=>{selected=+b.dataset.i;bar()})}bar();
+function solid(x,y,z){return blocks.has(key(Math.round(x),Math.floor(y),Math.round(z)))}function ray(){raycaster.setFromCamera(new THREE.Vector2(0,0),camera);return raycaster.intersectObjects(meshes,false).find(h=>h.distance<6)}
 document.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousedown',e=>{if(!locked||paused)return;const h=ray();if(!h)return;const d=h.object.userData;if(e.button===0){remove(h.object);inventory[d.t]++;bar()}if(e.button===2){if(inventory[selected]<=0)return;const n=h.face.normal.clone().transformDirection(h.object.matrixWorld);if(add(d.x+Math.round(n.x),d.y+Math.round(n.y),d.z+Math.round(n.z),selected)){inventory[selected]--;bar()}}});
 $('play').onclick=()=>{connectMultiplayer();paused=false;$('start').style.display='none';renderer.domElement.requestPointerLock()};document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===renderer.domElement;if(!locked&&!paused){paused=true;$('start').style.display='grid';$('card').innerHTML='<h2>Jogo pausado</h2><p>Clica para continuar.</p><button id="resume">CONTINUAR</button>';$('resume').onclick=()=>{paused=false;$('start').style.display='none';renderer.domElement.requestPointerLock()}}});
 document.addEventListener('mousemove',e=>{if(locked){p.yaw-=e.movementX*.0022;p.pitch=Math.max(-1.5,Math.min(1.5,p.pitch-e.movementY*.0022))}});document.addEventListener('keydown',e=>{keys[e.code]=true;if(e.code.startsWith('Digit')){let n=+e.code.slice(5);if(n>=1&&n<=6){selected=n-1;bar()}}if(e.code==='Space')e.preventDefault()});document.addEventListener('keyup',e=>keys[e.code]=false);
